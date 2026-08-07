@@ -501,3 +501,4 @@ Message Queue হলো Producer এবং Consumer-এর মাঝখানে
 - Queue Buffer হিসেবে কাজ করে।
 - Queue Asynchronous Communication নিশ্চিত করে।
 - Queue System-কে Reliable এবং Scalable করে।
+- Queue ব্যবহার মানেই "সব কাজ Background-এ পাঠিয়ে দাও" নয়।Queue ব্যবহার করা হয় শুধুমাত্র সেই কাজগুলোর জন্য যেগুলো পরে হলেও Business-এর মূল ফলাফল নষ্ট হবে না।
