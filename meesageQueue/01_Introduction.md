@@ -502,3 +502,25 @@ Message Queue হলো Producer এবং Consumer-এর মাঝখানে
 - Queue Asynchronous Communication নিশ্চিত করে।
 - Queue System-কে Reliable এবং Scalable করে।
 - Queue ব্যবহার মানেই "সব কাজ Background-এ পাঠিয়ে দাও" নয়।Queue ব্যবহার করা হয় শুধুমাত্র সেই কাজগুলোর জন্য যেগুলো পরে হলেও Business-এর মূল ফলাফল নষ্ট হবে না।
+
+# Golden Rule ⭐
+
+System Design-এ সব কাজ Queue-তে দেওয়া হয় না।
+
+## Response দেওয়ার আগে যা অবশ্যই শেষ করতে হবে (Critical)
+
+- payment
+- save order
+- reserve inventory
+- Authentication
+- Authorization
+
+## Response দেওয়ার পরে Queue-তে দেওয়া যায় (Non-Critical)
+
+- Email
+- SMS
+- Push Notification
+- Analytics
+- Logging
+- Recommendation update
+- cache update
