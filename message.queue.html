@@ -1,1161 +1,894 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>System Design: Message Queue</title>
-    <style>
-      :root {
-        --bg-dark: #0f172a;
-        --bg-card: #1e293b;
-        --text-main: #e2e8f0;
-        --text-muted: #94a3b8;
-        --accent-blue: #38bdf8;
-        --accent-purple: #a78bfa;
-        --accent-green: #4ade80;
-        --accent-red: #f87171;
-        --accent-gold: #fbbf24;
-        --code-bg: #020617;
-      }
+<style>
+  /* ========== RESET & BASE ========== */
+  @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,700&display=swap");
 
-      /* Screen Styles */
-      body {
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
-          Helvetica,
-          Arial,
-          sans-serif;
-        line-height: 1.6;
-        color: var(--text-main);
-        background-color: var(--bg-dark);
-        margin: 0;
-        padding: 40px 20px;
-        -webkit-font-smoothing: antialiased;
-      }
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        background-color: var(--bg-card);
-        padding: 40px;
-        border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        border: 1px solid #334155;
-      }
+  :root {
+    --bg: #0b0e14;
+    --bg-card: #131720;
+    --bg-surface: #1a1f2e;
+    --bg-elevated: #222838;
+    --border: #2a3040;
+    --text: #e2e8f0;
+    --text-dim: #8892a4;
+    --text-muted: #5a6478;
+    --accent: #60a5fa;
+    --accent-dim: #1e3a5f;
+    --green: #4ade80;
+    --green-dim: #0d3320;
+    --red: #f87171;
+    --red-dim: #3b1515;
+    --orange: #fbbf24;
+    --orange-dim: #3b2f0a;
+    --purple: #c084fc;
+    --purple-dim: #2d1a4e;
+    --slide-size: 1080px;
+    --pad: 90px;
+  }
 
-      header {
-        text-align: center;
-        padding-bottom: 30px;
-        border-bottom: 1px solid #334155;
-        margin-bottom: 40px;
-      }
+  body {
+    background: #050709;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 32px 0;
+    font-family: "DM Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 
-      header h1 {
-        font-size: 34px;
-        margin: 0 0 10px 0;
-        background: linear-gradient(
-          135deg,
-          var(--accent-blue),
-          var(--accent-purple)
-        );
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-      }
+  /* ========== SLIDE BASE ========== */
+  .slide {
+    width: var(--slide-size);
+    height: var(--slide-size);
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: var(--pad);
+  }
 
-      header p {
-        color: var(--text-muted);
-        font-size: 15px;
-        margin: 0;
-      }
+  /* ========== SLIDE NUMBER ========== */
+  .slide-num {
+    position: absolute;
+    bottom: 36px;
+    right: 44px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+  }
 
-      .tag-container {
-        text-align: center;
-        margin-bottom: 30px;
-      }
+  /* ========== SERIES TAG ========== */
+  .series-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
 
-      .tag {
-        display: inline-block;
-        background: rgba(56, 189, 248, 0.1);
-        color: var(--accent-blue);
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-        margin: 0 4px;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-      }
+  /* ========== TYPOGRAPHY ========== */
+  .title-huge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 82px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.05;
+    letter-spacing: -3px;
+  }
 
-      /* Section wrapper to prevent page breaks inside */
-      .section {
-        margin-bottom: 30px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  .title-huge .accent {
+    color: var(--accent);
+  }
 
-      h2 {
-        font-size: 24px;
-        color: var(--text-main);
-        margin-top: 40px;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        break-after: avoid;
-        page-break-after: avoid;
-      }
+  h1 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 52px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.15;
+    letter-spacing: -2px;
+    margin-bottom: 28px;
+  }
 
-      h2::before {
-        content: "";
-        display: block;
-        width: 6px;
-        height: 24px;
-        background: var(--accent-blue);
-        border-radius: 4px;
-        margin-right: 12px;
-      }
+  h1 .accent {
+    color: var(--accent);
+  }
+  h1 .green {
+    color: var(--green);
+  }
+  h1 .orange {
+    color: var(--orange);
+  }
 
-      h3 {
-        font-size: 18px;
-        color: var(--accent-blue);
-        margin-top: 24px;
-        margin-bottom: 10px;
-        break-after: avoid;
-        page-break-after: avoid;
-      }
+  h2 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
 
-      p,
-      li {
-        font-size: 15px;
-        color: var(--text-main);
-      }
+  .body-text {
+    font-size: 26px;
+    color: var(--text-dim);
+    line-height: 1.65;
+    max-width: 860px;
+  }
 
-      p {
-        margin-bottom: 15px;
-      }
+  .body-text strong {
+    color: var(--text);
+    font-weight: 700;
+  }
 
-      ul,
-      ol {
-        padding-left: 20px;
-      }
+  /* ========== ACCENT LINE ========== */
+  .accent-line {
+    width: 80px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 2px;
+    margin: 24px 0;
+  }
 
-      li {
-        margin-bottom: 8px;
-      }
+  .accent-line-top {
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), transparent 60%);
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
 
-      strong,
-      b {
-        color: #fff;
-        font-weight: 600;
-      }
+  /* ========== DIAGRAM BOX ========== */
+  .diagram-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px 40px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 20px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin-top: 16px;
+  }
 
-      .ascii {
-        background-color: var(--code-bg);
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 20px;
-        font-family: "Fira Code", "Courier New", monospace;
-        font-size: 13px;
-        white-space: pre-wrap;
-        color: var(--accent-green);
-        margin: 20px 0;
-        line-height: 1.4;
-        text-align: center;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  .diagram-box .label {
+    color: var(--accent);
+    font-weight: 700;
+  }
 
-      .grid-2 {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        margin-top: 20px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  .diagram-box .green {
+    color: var(--green);
+  }
+  .diagram-box .orange {
+    color: var(--orange);
+  }
+  .diagram-box .red {
+    color: var(--red);
+  }
+  .diagram-box .purple {
+    color: var(--purple);
+  }
+  .diagram-box .dim {
+    color: var(--text-muted);
+  }
 
-      .card {
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 20px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  /* ========== GRID ITEMS ========== */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 16px;
+  }
 
-      .card h3 {
-        margin-top: 0;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #334155;
-      }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
 
-      .card.sync h3 {
-        color: var(--accent-red);
-      }
-      .card.async h3 {
-        color: var(--accent-green);
-      }
+  .info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+  }
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        font-size: 14px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  .info-card .card-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
 
-      th,
-      td {
-        text-align: left;
-        padding: 12px;
-        border-bottom: 1px solid #334155;
-      }
+  .info-card .card-body {
+    font-size: 19px;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
 
-      th {
-        color: var(--accent-blue);
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 0.5px;
-      }
+  .info-card .card-example {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+    color: var(--orange);
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border-radius: 6px;
+    display: inline-block;
+  }
 
-      .golden-rule {
-        background: rgba(251, 191, 36, 0.05);
-        border: 1px solid rgba(251, 191, 36, 0.3);
-        border-radius: 12px;
-        padding: 25px;
-        margin-top: 30px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  /* ========== COMPARISON TABLE ========== */
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    margin-top: 12px;
+  }
 
-      .golden-rule h2 {
-        margin-top: 0;
-        color: var(--accent-gold);
-      }
+  .compare-col {
+    padding: 28px 32px;
+  }
 
-      .golden-rule h2::before {
-        background: var(--accent-gold);
-      }
+  .compare-col.header-col {
+    background: var(--accent-dim);
+    border-radius: 12px 0 0 12px;
+  }
 
-      .pros-cons {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  .compare-col.body-col {
+    background: var(--green-dim);
+    border-radius: 0 12px 12px 0;
+  }
 
-      .pros h3 {
-        color: var(--accent-green);
-      }
-      .cons h3 {
-        color: var(--accent-red);
-      }
+  .compare-col .col-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
 
-      hr {
-        border: 0;
-        border-top: 1px solid #334155;
-        margin: 40px 0 20px 0;
-      }
+  .compare-col.header-col .col-title {
+    color: var(--accent);
+  }
+  .compare-col.body-col .col-title {
+    color: var(--green);
+  }
 
-      .footer {
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 14px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  .compare-col .col-item {
+    font-size: 20px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
 
-      @media (max-width: 600px) {
-        .grid-2,
-        .pros-cons {
-          grid-template-columns: 1fr;
-        }
-      }
+  .compare-col .col-item:last-child {
+    border-bottom: none;
+  }
 
-      /* ===== PDF / PRINT FIXES ===== */
-      @media print {
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          background-color: var(--bg-dark); /* Keep dark mode for PDF */
-          height: 100%;
-        }
+  /* ========== CODE BLOCK ========== */
+  .code-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 19px;
+    line-height: 1.65;
+    color: var(--text-dim);
+    margin-top: 16px;
+    overflow: hidden;
+  }
 
-        /* Force dark background to show in PDF */
-        body,
-        .container,
-        .card,
-        .ascii,
-        .golden-rule {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
+  .code-block .key {
+    color: var(--accent);
+  }
+  .code-block .val {
+    color: var(--green);
+  }
+  .code-block .str {
+    color: var(--orange);
+  }
+  .code-block .punct {
+    color: var(--text-muted);
+  }
 
-        .container {
-          max-width: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 20px;
-          border-radius: 0;
-          border: none;
-          box-shadow: none;
-        }
+  /* ========== BEST PRACTICE ========== */
+  .practice-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
 
-        /* Remove blank page at the end */
-        .footer {
-          margin-bottom: 0;
-          padding-bottom: 0;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <header>
-        <h1>System Design: Message Queue</h1>
-        <p>A simple, humanized guide to asynchronous communication.</p>
-      </header>
+  .practice-item:last-child {
+    border-bottom: none;
+  }
 
-      <div class="tag-container">
-        <span class="tag">System Design</span>
-        <span class="tag">Backend</span>
-        <span class="tag">Architecture</span>
-      </div>
+  .practice-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    margin-top: 2px;
+  }
 
-      <div class="section">
-        <h2>What is a Message Queue?</h2>
-        <p>
-          Imagine a message queue as a <strong>waiting line</strong> or a
-          <strong>buffer</strong> sitting between a sender and a receiver. It
-          temporarily holds onto messages so that two different parts of a
-          system can talk to each other without having to wait. This is called
-          <strong>Asynchronous Communication</strong>.
-        </p>
-        <p>Here is how it works in plain English:</p>
-        <ul>
-          <li>
-            <strong>Producer:</strong> Creates a message and drops it in the
-            queue.
-          </li>
-          <li><strong>Message Queue:</strong> Safely holds the message.</li>
-          <li>
-            <strong>Consumer:</strong> Picks up the message and does the actual
-            work whenever it's ready.
-          </li>
-        </ul>
+  .practice-icon.do {
+    background: var(--green-dim);
+    color: var(--green);
+  }
 
-        <div class="ascii">
-          Producer | v +----------------+ | Message Queue | +----------------+ |
-          v Consumer
-        </div>
-      </div>
+  .practice-icon.dont {
+    background: var(--red-dim);
+    color: var(--red);
+  }
 
-      <div class="section">
-        <h2>Why Do We Need Them?</h2>
-        <p>
-          Modern apps aren't just one big block of code. They are made of many
-          smaller services (User Service, Payment Service, Email Service, etc.).
-          If every service talks directly to every other service, the system
-          becomes a messy, tangled web. If one service crashes, the whole app
-          goes down with it.
-        </p>
-        <p>
-          A message queue steps in the middle to fix this. It keeps things
-          smooth, fast, and organized.
-        </p>
+  .practice-text {
+    font-size: 22px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
 
-        <div class="grid-2">
-          <div class="card sync">
-            <h3>🚫 Synchronous (Without Queue)</h3>
-            <p>
-              Think of ordering food and standing at the counter until it's
-              ready. If the food takes 10 minutes, you stand there for 10
-              minutes.
-            </p>
-            <p>
-              <strong>In software:</strong> A user signs up, and the server
-              waits 10 seconds for the email to send before telling the user
-              "Success."
-            </p>
-            <p>
-              <strong>Problems:</strong> Slow, bad user experience, and if the
-              email service crashes, the sign-up fails too.
-            </p>
-          </div>
-          <div class="card async">
-            <h3>✅ Asynchronous (With Queue)</h3>
-            <p>
-              Think of ordering food and getting a buzzer. You can sit down and
-              relax. The buzzer will go off later when the food is ready.
-            </p>
-            <p>
-              <strong>In software:</strong> A user signs up. The server drops a
-              "send welcome email" message in the queue and immediately tells
-              the user "Success!" The email is sent in the background.
-            </p>
-            <p>
-              <strong>Benefits:</strong> Super fast response, happy users, and
-              background processing.
-            </p>
-          </div>
-        </div>
-      </div>
+  .practice-text strong {
+    color: var(--text);
+  }
 
-      <div class="section">
-        <h2>Meet the Players</h2>
-        <div class="grid-2">
-          <div class="card">
-            <h3>Producer</h3>
-            <p>
-              The Producer is the service that creates the message. It doesn’t
-              actually do the work; its only job is to say,
-              <em>"Hey, this needs to be done!"</em> and hand it off to the
-              queue.
-            </p>
-            <p>
-              <em
-                >Examples: User Service (signing someone up), Order Service
-                (placing an order).</em
-              >
-            </p>
-          </div>
-          <div class="card">
-            <h3>Consumer</h3>
-            <p>
-              The Consumer is the worker. It picks up messages from the queue
-              and actually executes the task.
-            </p>
-            <p>
-              <em
-                >Examples: Email Service, SMS Service, Image Processing
-                Service.</em
-              >
-            </p>
-            <p>
-              <strong>Quick Clarification:</strong> <em>Nodemailer</em> is NOT a
-              consumer. Your <em>Email Service</em> is the consumer. Nodemailer
-              is just the tool your Email Service uses to send the email.
-            </p>
-          </div>
-        </div>
-      </div>
+  /* ========== FLOW ARROW ========== */
+  .flow-horizontal {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-top: 24px;
+    justify-content: center;
+  }
 
-      <div class="section">
-        <h2>Why Message Queues are Awesome</h2>
+  .flow-node {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 22px;
+    text-align: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 120px;
+  }
 
-        <h3>🛡️ It Acts as a Buffer</h3>
-        <p>
-          Imagine suddenly getting 10,000 emails requests at once, but your
-          system can only send 100 per second. Without a queue, your system
-          crashes. With a queue, it just holds the 10,000 requests and lets the
-          consumer work through them at its own safe pace. No requests are lost.
-        </p>
+  .flow-node.producer {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .flow-node.queue {
+    border-color: var(--orange);
+    color: var(--orange);
+  }
+  .flow-node.consumer {
+    border-color: var(--green);
+    color: var(--green);
+  }
 
-        <h3>🧩 Decoupling (Loose Coupling)</h3>
-        <p>
-          Because the queue sits in the middle, services don't depend on each
-          other to be online. If your Email Service crashes, the User Service
-          can still keep signing people up. The queue holds the messages. Once
-          the Email Service comes back online, it picks up right where it left
-          off.
-        </p>
+  .flow-arrow {
+    font-size: 26px;
+    color: var(--text-muted);
+    padding: 0 8px;
+  }
 
-        <h3>📈 Easy Scalability</h3>
-        <p>
-          If your queue is getting too full, you don't need to buy a bigger
-          server. You just add more "Consumers" to the team. Instead of one
-          worker processing messages, you now have four workers pulling from the
-          same queue. This is called <strong>Horizontal Scaling</strong>.
-        </p>
-      </div>
+  /* ========== SUBTITLE ========== */
+  .subtitle {
+    font-size: 28px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-top: 20px;
+    max-width: 800px;
+  }
 
-      <div class="section">
-        <h2>Real-World Companies Using Them</h2>
-        <table>
-          <tr>
-            <th>Company</th>
-            <th>How They Use Message Queues</th>
-          </tr>
-          <tr>
-            <td>Amazon</td>
-            <td>Processing thousands of orders simultaneously</td>
-          </tr>
-          <tr>
-            <td>Uber</td>
-            <td>Matching riders with drivers in real-time</td>
-          </tr>
-          <tr>
-            <td>WhatsApp</td>
-            <td>Delivering billions of messages reliably</td>
-          </tr>
-          <tr>
-            <td>Netflix / YouTube</td>
-            <td>Processing and encoding uploaded videos</td>
-          </tr>
-        </table>
-      </div>
+  /* ========== CTA ========== */
+  .cta-handle {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
 
-      <div class="section">
-        <div class="pros-cons">
-          <div class="card pros">
-            <h3>✅ Advantages</h3>
-            <ul>
-              <li>Fast, non-blocking responses</li>
-              <li>Background processing</li>
-              <li>Systems can crash without breaking everything</li>
-              <li>Easy to scale up during high traffic</li>
-            </ul>
-          </div>
-          <div class="card cons">
-            <h3>❌ Disadvantages</h3>
-            <ul>
-              <li>System architecture gets a bit more complex</li>
-              <li>Harder to debug and monitor</li>
-              <li>Requires extra infrastructure to maintain</li>
-              <li>
-                Data takes a little time to update everywhere (Eventual
-                Consistency)
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+  .cta-text {
+    font-size: 26px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-top: 16px;
+  }
 
-      <div class="section">
-        <div class="golden-rule">
-          <h2>⭐ The Golden Rule of System Design</h2>
-          <p>
-            You should <strong>not</strong> put everything in a message queue.
-            If you make everything asynchronous, your app will feel broken to
-            users. Use queues only for tasks that don't need to be finished
-            <em>right this second</em>.
-          </p>
+  /* ========== PARCEL ANALOGY ========== */
+  .parcel-box {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 20px;
+  }
 
-          <div class="grid-2" style="margin-top: 20px">
-            <div>
-              <h3 style="color: var(--accent-red); margin-bottom: 5px">
-                Do BEFORE Responding (Critical)
-              </h3>
-              <ul>
-                <li>Processing Payments</li>
-                <li>Saving an Order</li>
-                <li>Reserving Inventory</li>
-                <li>Authentication & Logins</li>
-              </ul>
-            </div>
-            <div>
-              <h3 style="color: var(--accent-green); margin-bottom: 5px">
-                Throw in the Queue (Non-Critical)
-              </h3>
-              <ul>
-                <li>Sending Emails / SMS</li>
-                <li>Push Notifications</li>
-                <li>Analytics & Logging</li>
-                <li>Updating Recommendations</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
+  .parcel-side {
+    border-radius: 12px;
+    padding: 32px 28px;
+  }
 
-      <hr />
+  .parcel-side.outside {
+    background: var(--accent-dim);
+    border: 1px dashed rgba(96, 165, 250, 0.3);
+  }
 
-      <div class="footer">
-        <p>
-          <strong>Summary:</strong> A Message Queue is a middleware that
-          temporarily stores messages between producers and consumers, enabling
-          asynchronous, reliable, and scalable communication.
-        </p>
-        <p style="margin-bottom: 0">
-          Follow for more simple, humanized System Design notes! 🚀
-        </p>
+  .parcel-side.inside {
+    background: var(--green-dim);
+    border: 1px dashed rgba(74, 222, 128, 0.3);
+  }
+
+  .parcel-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .parcel-side.outside .parcel-label {
+    color: var(--accent);
+  }
+  .parcel-side.inside .parcel-label {
+    color: var(--green);
+  }
+
+  .parcel-item {
+    font-size: 20px;
+    color: var(--text-dim);
+    padding: 6px 0;
+    line-height: 1.5;
+  }
+
+  /* ========== PRINT STYLES ========== */
+  @media print {
+    body {
+      gap: 0;
+      padding: 0;
+      background: var(--bg);
+    }
+    .slide {
+      page-break-after: always;
+      page-break-inside: avoid;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .slide:last-child {
+      page-break-after: auto;
+    }
+  }
+</style>
+
+<!-- ========== SLIDE 1: TITLE ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <div
+    style="
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    "
+  >
+    <div class="series-tag">System Design Series · Part 2</div>
+    <div style="height: 20px"></div>
+    <div class="title-huge">
+      Message<br />
+      <span class="accent">Structure</span>
+    </div>
+    <div style="height: 28px"></div>
+    <div class="accent-line"></div>
+    <div class="subtitle">
+      What's actually inside a message?<br />
+      Header, Body, and why they're separated.
+    </div>
+  </div>
+  <div class="slide-num">01 / 09</div>
+</div>
+
+<!-- ========== SLIDE 2: WHAT IS A MESSAGE ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1>What is a <span class="accent">Message</span>?</h1>
+  <div class="body-text">
+    When a <strong>Producer</strong> sends data to a queue, that data is called
+    a <strong>Message</strong>.
+  </div>
+  <div style="height: 16px"></div>
+  <div class="body-text">Every message has <strong>two parts</strong>:</div>
+  <div style="height: 20px"></div>
+  <div class="diagram-box">
+    <span class="label">Message</span><br />
+    <span class="dim">│</span><br />
+    <span class="dim">├──</span> <span class="label">Header</span>
+    <span class="dim">(Metadata — info about the message)</span><br />
+    <span class="dim">│</span><br />
+    <span class="dim">└──</span> <span class="green">Body</span>
+    <span class="dim">(Payload — actual data to process)</span>
+  </div>
+  <div style="height: 32px"></div>
+  <div class="body-text" style="font-size: 24px">
+    Think of it like a <strong>courier parcel</strong> —<br />
+    the <strong>shipping label</strong> is the Header,<br />
+    the <strong>item inside</strong> is the Body.
+  </div>
+  <div class="slide-num">02 / 09</div>
+</div>
+
+<!-- ========== SLIDE 3: PARCEL ANALOGY ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1>The <span class="orange">Parcel</span> Analogy</h1>
+  <div class="body-text">
+    Imagine you're sending a package through a courier service.
+  </div>
+  <div class="parcel-box">
+    <div class="parcel-side outside">
+      <div class="parcel-label">📋 Outside Label = Header</div>
+      <div class="parcel-item">• Tracking Number</div>
+      <div class="parcel-item">• Sender Name</div>
+      <div class="parcel-item">• Receiver Address</div>
+      <div class="parcel-item">• Delivery Priority</div>
+      <div class="parcel-item">• Package Type</div>
+      <div style="height: 16px"></div>
+      <div
+        class="parcel-item"
+        style="color: var(--accent); font-size: 18px; font-style: italic"
+      >
+        The courier reads this to deliver it.
       </div>
     </div>
-  </body>
-</html>
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>System Design: Message Queue</title>
-    <style>
-      :root {
-        --bg-dark: #0f172a;
-        --bg-card: #1e293b;
-        --text-main: #e2e8f0;
-        --text-muted: #94a3b8;
-        --accent-blue: #38bdf8;
-        --accent-purple: #a78bfa;
-        --accent-green: #4ade80;
-        --accent-red: #f87171;
-        --accent-gold: #fbbf24;
-        --code-bg: #020617;
-      }
-
-      /* Screen Styles */
-      body {
-        font-family:
-          "Inter",
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
-          Helvetica,
-          Arial,
-          sans-serif;
-        line-height: 1.6;
-        color: var(--text-main);
-        background-color: var(--bg-dark);
-        margin: 0;
-        padding: 40px 20px;
-        -webkit-font-smoothing: antialiased;
-      }
-
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        background-color: var(--bg-card);
-        padding: 40px;
-        border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        border: 1px solid #334155;
-      }
-
-      header {
-        text-align: center;
-        padding-bottom: 30px;
-        border-bottom: 1px solid #334155;
-        margin-bottom: 40px;
-      }
-
-      header h1 {
-        font-size: 34px;
-        margin: 0 0 10px 0;
-        background: linear-gradient(
-          135deg,
-          var(--accent-blue),
-          var(--accent-purple)
-        );
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-      }
-
-      header p {
-        color: var(--text-muted);
-        font-size: 15px;
-        margin: 0;
-      }
-
-      .tag-container {
-        text-align: center;
-        margin-bottom: 30px;
-      }
-
-      .tag {
-        display: inline-block;
-        background: rgba(56, 189, 248, 0.1);
-        color: var(--accent-blue);
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-        margin: 0 4px;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-      }
-
-      /* Section wrapper to prevent page breaks inside */
-      .section {
-        margin-bottom: 30px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      h2 {
-        font-size: 24px;
-        color: var(--text-main);
-        margin-top: 40px;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        break-after: avoid;
-        page-break-after: avoid;
-      }
-
-      h2::before {
-        content: "";
-        display: block;
-        width: 6px;
-        height: 24px;
-        background: var(--accent-blue);
-        border-radius: 4px;
-        margin-right: 12px;
-      }
-
-      h3 {
-        font-size: 18px;
-        color: var(--accent-blue);
-        margin-top: 24px;
-        margin-bottom: 10px;
-        break-after: avoid;
-        page-break-after: avoid;
-      }
-
-      p,
-      li {
-        font-size: 15px;
-        color: var(--text-main);
-      }
-
-      p {
-        margin-bottom: 15px;
-      }
-
-      ul,
-      ol {
-        padding-left: 20px;
-      }
-
-      li {
-        margin-bottom: 8px;
-      }
-
-      strong,
-      b {
-        color: #fff;
-        font-weight: 600;
-      }
-
-      .ascii {
-        background-color: var(--code-bg);
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 20px;
-        font-family: "Fira Code", "Courier New", monospace;
-        font-size: 13px;
-        white-space: pre-wrap;
-        color: var(--accent-green);
-        margin: 20px 0;
-        line-height: 1.4;
-        text-align: center;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      .grid-2 {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        margin-top: 20px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      .card {
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 20px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      .card h3 {
-        margin-top: 0;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #334155;
-      }
-
-      .card.sync h3 {
-        color: var(--accent-red);
-      }
-      .card.async h3 {
-        color: var(--accent-green);
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        font-size: 14px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      th,
-      td {
-        text-align: left;
-        padding: 12px;
-        border-bottom: 1px solid #334155;
-      }
-
-      th {
-        color: var(--accent-blue);
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 0.5px;
-      }
-
-      .golden-rule {
-        background: rgba(251, 191, 36, 0.05);
-        border: 1px solid rgba(251, 191, 36, 0.3);
-        border-radius: 12px;
-        padding: 25px;
-        margin-top: 30px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      .golden-rule h2 {
-        margin-top: 0;
-        color: var(--accent-gold);
-      }
-
-      .golden-rule h2::before {
-        background: var(--accent-gold);
-      }
-
-      .pros-cons {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      .pros h3 {
-        color: var(--accent-green);
-      }
-      .cons h3 {
-        color: var(--accent-red);
-      }
-
-      hr {
-        border: 0;
-        border-top: 1px solid #334155;
-        margin: 40px 0 20px 0;
-      }
-
-      .footer {
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 14px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      @media (max-width: 600px) {
-        .grid-2,
-        .pros-cons {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      /* ===== PDF / PRINT FIXES ===== */
-      @media print {
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          background-color: var(--bg-dark); /* Keep dark mode for PDF */
-          height: 100%;
-        }
-
-        /* Force dark background to show in PDF */
-        body,
-        .container,
-        .card,
-        .ascii,
-        .golden-rule {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-
-        .container {
-          max-width: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 20px;
-          border-radius: 0;
-          border: none;
-          box-shadow: none;
-        }
-
-        /* Remove blank page at the end */
-        .footer {
-          margin-bottom: 0;
-          padding-bottom: 0;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <header>
-        <h1>System Design: Message Queue</h1>
-        <p>A simple, humanized guide to asynchronous communication.</p>
-      </header>
-
-      <div class="tag-container">
-        <span class="tag">System Design</span>
-        <span class="tag">Backend</span>
-        <span class="tag">Architecture</span>
-      </div>
-
-      <div class="section">
-        <h2>What is a Message Queue?</h2>
-        <p>
-          Imagine a message queue as a <strong>waiting line</strong> or a
-          <strong>buffer</strong> sitting between a sender and a receiver. It
-          temporarily holds onto messages so that two different parts of a
-          system can talk to each other without having to wait. This is called
-          <strong>Asynchronous Communication</strong>.
-        </p>
-        <p>Here is how it works in plain English:</p>
-        <ul>
-          <li>
-            <strong>Producer:</strong> Creates a message and drops it in the
-            queue.
-          </li>
-          <li><strong>Message Queue:</strong> Safely holds the message.</li>
-          <li>
-            <strong>Consumer:</strong> Picks up the message and does the actual
-            work whenever it's ready.
-          </li>
-        </ul>
-
-        <div class="ascii">
-          Producer | v +----------------+ | Message Queue | +----------------+ |
-          v Consumer
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Why Do We Need Them?</h2>
-        <p>
-          Modern apps aren't just one big block of code. They are made of many
-          smaller services (User Service, Payment Service, Email Service, etc.).
-          If every service talks directly to every other service, the system
-          becomes a messy, tangled web. If one service crashes, the whole app
-          goes down with it.
-        </p>
-        <p>
-          A message queue steps in the middle to fix this. It keeps things
-          smooth, fast, and organized.
-        </p>
-
-        <div class="grid-2">
-          <div class="card sync">
-            <h3>🚫 Synchronous (Without Queue)</h3>
-            <p>
-              Think of ordering food and standing at the counter until it's
-              ready. If the food takes 10 minutes, you stand there for 10
-              minutes.
-            </p>
-            <p>
-              <strong>In software:</strong> A user signs up, and the server
-              waits 10 seconds for the email to send before telling the user
-              "Success."
-            </p>
-            <p>
-              <strong>Problems:</strong> Slow, bad user experience, and if the
-              email service crashes, the sign-up fails too.
-            </p>
-          </div>
-          <div class="card async">
-            <h3>✅ Asynchronous (With Queue)</h3>
-            <p>
-              Think of ordering food and getting a buzzer. You can sit down and
-              relax. The buzzer will go off later when the food is ready.
-            </p>
-            <p>
-              <strong>In software:</strong> A user signs up. The server drops a
-              "send welcome email" message in the queue and immediately tells
-              the user "Success!" The email is sent in the background.
-            </p>
-            <p>
-              <strong>Benefits:</strong> Super fast response, happy users, and
-              background processing.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Meet the Players</h2>
-        <div class="grid-2">
-          <div class="card">
-            <h3>Producer</h3>
-            <p>
-              The Producer is the service that creates the message. It doesn’t
-              actually do the work; its only job is to say,
-              <em>"Hey, this needs to be done!"</em> and hand it off to the
-              queue.
-            </p>
-            <p>
-              <em
-                >Examples: User Service (signing someone up), Order Service
-                (placing an order).</em
-              >
-            </p>
-          </div>
-          <div class="card">
-            <h3>Consumer</h3>
-            <p>
-              The Consumer is the worker. It picks up messages from the queue
-              and actually executes the task.
-            </p>
-            <p>
-              <em
-                >Examples: Email Service, SMS Service, Image Processing
-                Service.</em
-              >
-            </p>
-            <p>
-              <strong>Quick Clarification:</strong> <em>Nodemailer</em> is NOT a
-              consumer. Your <em>Email Service</em> is the consumer. Nodemailer
-              is just the tool your Email Service uses to send the email.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>Why Message Queues are Awesome</h2>
-
-        <h3>🛡️ It Acts as a Buffer</h3>
-        <p>
-          Imagine suddenly getting 10,000 emails requests at once, but your
-          system can only send 100 per second. Without a queue, your system
-          crashes. With a queue, it just holds the 10,000 requests and lets the
-          consumer work through them at its own safe pace. No requests are lost.
-        </p>
-
-        <h3>🧩 Decoupling (Loose Coupling)</h3>
-        <p>
-          Because the queue sits in the middle, services don't depend on each
-          other to be online. If your Email Service crashes, the User Service
-          can still keep signing people up. The queue holds the messages. Once
-          the Email Service comes back online, it picks up right where it left
-          off.
-        </p>
-
-        <h3>📈 Easy Scalability</h3>
-        <p>
-          If your queue is getting too full, you don't need to buy a bigger
-          server. You just add more "Consumers" to the team. Instead of one
-          worker processing messages, you now have four workers pulling from the
-          same queue. This is called <strong>Horizontal Scaling</strong>.
-        </p>
-      </div>
-
-      <div class="section">
-        <h2>Real-World Companies Using Them</h2>
-        <table>
-          <tr>
-            <th>Company</th>
-            <th>How They Use Message Queues</th>
-          </tr>
-          <tr>
-            <td>Amazon</td>
-            <td>Processing thousands of orders simultaneously</td>
-          </tr>
-          <tr>
-            <td>Uber</td>
-            <td>Matching riders with drivers in real-time</td>
-          </tr>
-          <tr>
-            <td>WhatsApp</td>
-            <td>Delivering billions of messages reliably</td>
-          </tr>
-          <tr>
-            <td>Netflix / YouTube</td>
-            <td>Processing and encoding uploaded videos</td>
-          </tr>
-        </table>
-      </div>
-
-      <div class="section">
-        <div class="pros-cons">
-          <div class="card pros">
-            <h3>✅ Advantages</h3>
-            <ul>
-              <li>Fast, non-blocking responses</li>
-              <li>Background processing</li>
-              <li>Systems can crash without breaking everything</li>
-              <li>Easy to scale up during high traffic</li>
-            </ul>
-          </div>
-          <div class="card cons">
-            <h3>❌ Disadvantages</h3>
-            <ul>
-              <li>System architecture gets a bit more complex</li>
-              <li>Harder to debug and monitor</li>
-              <li>Requires extra infrastructure to maintain</li>
-              <li>
-                Data takes a little time to update everywhere (Eventual
-                Consistency)
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="golden-rule">
-          <h2>⭐ The Golden Rule of System Design</h2>
-          <p>
-            You should <strong>not</strong> put everything in a message queue.
-            If you make everything asynchronous, your app will feel broken to
-            users. Use queues only for tasks that don't need to be finished
-            <em>right this second</em>.
-          </p>
-
-          <div class="grid-2" style="margin-top: 20px">
-            <div>
-              <h3 style="color: var(--accent-red); margin-bottom: 5px">
-                Do BEFORE Responding (Critical)
-              </h3>
-              <ul>
-                <li>Processing Payments</li>
-                <li>Saving an Order</li>
-                <li>Reserving Inventory</li>
-                <li>Authentication & Logins</li>
-              </ul>
-            </div>
-            <div>
-              <h3 style="color: var(--accent-green); margin-bottom: 5px">
-                Throw in the Queue (Non-Critical)
-              </h3>
-              <ul>
-                <li>Sending Emails / SMS</li>
-                <li>Push Notifications</li>
-                <li>Analytics & Logging</li>
-                <li>Updating Recommendations</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <hr />
-
-      <div class="footer">
-        <p>
-          <strong>Summary:</strong> A Message Queue is a middleware that
-          temporarily stores messages between producers and consumers, enabling
-          asynchronous, reliable, and scalable communication.
-        </p>
+    <div class="parcel-side inside">
+      <div class="parcel-label">📦 Inside Box = Body</div>
+      <div class="parcel-item">• The actual laptop</div>
+      <div class="parcel-item">• Charger & accessories</div>
+      <div class="parcel-item">• Invoice / receipt</div>
+      <div style="height: 40px"></div>
+      <div
+        class="parcel-item"
+        style="color: var(--green); font-size: 18px; font-style: italic"
+      >
+        The receiver opens this and uses it.
       </div>
     </div>
-  </body>
-</html>
+  </div>
+  <div style="height: 28px"></div>
+  <div class="body-text" style="font-size: 24px">
+    The <strong>Queue/Broker</strong> reads the Header (label).<br />
+    The <strong>Consumer</strong> reads the Body (contents).
+  </div>
+  <div class="slide-num">03 / 09</div>
+</div>
+
+<!-- ========== SLIDE 4: HEADER FIELDS ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1>6 Key <span class="accent">Header</span> Fields</h1>
+  <div class="grid-3">
+    <div class="info-card">
+      <div class="card-title">01 · Message ID</div>
+      <div class="card-body">
+        Unique ID for every message. Helps with tracking and duplicate
+        detection.
+      </div>
+      <div class="card-example">MSG-1001</div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">02 · Timestamp</div>
+      <div class="card-body">
+        When the message was created. Used for monitoring and TTL checks.
+      </div>
+      <div class="card-example">2026-08-08T10:30</div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">03 · Message Type</div>
+      <div class="card-body">
+        What kind of message it is. Consumer decides action based on this.
+      </div>
+      <div class="card-example">SEND_EMAIL</div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">04 · Routing Key</div>
+      <div class="card-body">
+        Tells the broker which queue to deliver this message to.
+      </div>
+      <div class="card-example">email.queue</div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">05 · Priority</div>
+      <div class="card-body">
+        How urgent the message is. HIGH priority gets processed first.
+      </div>
+      <div class="card-example">HIGH / LOW</div>
+    </div>
+    <div class="info-card">
+      <div class="card-title">06 · Correlation ID</div>
+      <div class="card-body">
+        Links multiple messages from the same request in distributed systems.
+      </div>
+      <div class="card-example">REQ-4567</div>
+    </div>
+  </div>
+  <div class="slide-num">04 / 09</div>
+</div>
+
+<!-- ========== SLIDE 5: BODY / PAYLOAD ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1>Body = <span class="green">Payload</span></h1>
+  <div class="body-text">
+    The Body carries the <strong>actual business data</strong>
+    that the Consumer will use to do its job.
+  </div>
+  <div style="height: 12px"></div>
+  <div class="grid-2">
+    <div>
+      <h2 style="color: var(--green)">Example Body</h2>
+      <div class="code-block">
+        <span class="punct">{</span><br />
+        &nbsp;&nbsp;<span class="key">"name"</span><span class="punct">:</span>
+        <span class="str">"Rahim"</span><span class="punct">,</span><br />
+        &nbsp;&nbsp;<span class="key">"email"</span><span class="punct">:</span>
+        <span class="str">"rahim@gmail.com"</span><span class="punct">,</span
+        ><br />
+        &nbsp;&nbsp;<span class="key">"subject"</span
+        ><span class="punct">:</span> <span class="str">"Welcome"</span
+        ><span class="punct">,</span><br />
+        &nbsp;&nbsp;<span class="key">"message"</span
+        ><span class="punct">:</span>
+        <span class="str">"Thanks for joining."</span><br />
+        <span class="punct">}</span>
+      </div>
+    </div>
+    <div>
+      <h2 style="color: var(--orange)">Supported Formats</h2>
+      <div style="margin-top: 16px">
+        <div class="info-card" style="margin-bottom: 12px; padding: 18px 22px">
+          <div class="card-body" style="font-size: 21px">
+            <strong style="color: var(--accent)">JSON</strong> — most common
+            format
+          </div>
+        </div>
+        <div class="info-card" style="margin-bottom: 12px; padding: 18px 22px">
+          <div class="card-body" style="font-size: 21px">
+            <strong style="color: var(--accent)">Plain Text</strong> — simple
+            strings
+          </div>
+        </div>
+        <div class="info-card" style="margin-bottom: 12px; padding: 18px 22px">
+          <div class="card-body" style="font-size: 21px">
+            <strong style="color: var(--accent)">XML</strong> — structured
+            markup
+          </div>
+        </div>
+        <div class="info-card" style="padding: 18px 22px">
+          <div class="card-body" style="font-size: 21px">
+            <strong style="color: var(--accent)">Binary</strong> — images,
+            video, files
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">05 / 09</div>
+</div>
+
+<!-- ========== SLIDE 6: COMPLETE MESSAGE ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1>Complete <span class="accent">Message</span></h1>
+  <div class="body-text" style="margin-bottom: 16px">
+    Here's what a real message looks like — Header + Body together.
+  </div>
+  <div class="diagram-box" style="font-size: 19px; line-height: 1.75">
+    <span class="label" style="font-size: 22px">Message</span><br />
+    <span class="dim">│</span><br />
+    <span class="dim">├──</span> <span class="label">Header</span><br />
+    <span class="dim">│</span>&nbsp;&nbsp;&nbsp;<span class="dim">├──</span>
+    Message ID &nbsp;:
+    <span class="str" style="color: var(--orange)">MSG-1001</span><br />
+    <span class="dim">│</span>&nbsp;&nbsp;&nbsp;<span class="dim">├──</span>
+    Timestamp &nbsp;&nbsp;:
+    <span class="str" style="color: var(--orange)">2026-08-08</span><br />
+    <span class="dim">│</span>&nbsp;&nbsp;&nbsp;<span class="dim">├──</span>
+    Type &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
+    <span class="str" style="color: var(--orange)">SEND_EMAIL</span><br />
+    <span class="dim">│</span>&nbsp;&nbsp;&nbsp;<span class="dim">├──</span>
+    Priority &nbsp;&nbsp;&nbsp;: <span class="red">HIGH</span><br />
+    <span class="dim">│</span>&nbsp;&nbsp;&nbsp;<span class="dim">├──</span>
+    Routing Key : <span class="str" style="color: var(--orange)">email</span
+    ><br />
+    <span class="dim">│</span>&nbsp;&nbsp;&nbsp;<span class="dim">└──</span>
+    Corr. ID &nbsp;&nbsp;&nbsp;: <span class="purple">REQ-456</span><br />
+    <span class="dim">│</span><br />
+    <span class="dim">└──</span> <span class="green">Body</span><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dim">├──</span> Email
+    &nbsp;&nbsp;: <span class="green">rahim@gmail.com</span><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dim">├──</span> Subject :
+    <span class="green">Welcome</span><br />
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="dim">└──</span> Message :
+    <span class="green">Thanks for joining</span>
+  </div>
+  <div class="slide-num">06 / 09</div>
+</div>
+
+<!-- ========== SLIDE 7: HEADER VS BODY ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1><span class="accent">Header</span> vs <span class="green">Body</span></h1>
+  <div class="body-text" style="margin-bottom: 12px">
+    They serve different purposes for different parts of the system.
+  </div>
+  <div class="compare-row">
+    <div class="compare-col header-col">
+      <div class="col-title">Header (Metadata)</div>
+      <div class="col-item">Used by the <strong>Queue / Broker</strong></div>
+      <div class="col-item">Contains routing information</div>
+      <div class="col-item">Has priority level</div>
+      <div class="col-item">Stores message type</div>
+      <div class="col-item">Includes tracking IDs</div>
+    </div>
+    <div class="compare-col body-col">
+      <div class="col-title">Body (Payload)</div>
+      <div class="col-item">Used by the <strong>Consumer</strong></div>
+      <div class="col-item">Contains business data</div>
+      <div class="col-item">Has user information</div>
+      <div class="col-item">Stores email / order / payment data</div>
+      <div class="col-item">Actual content to process</div>
+    </div>
+  </div>
+  <div style="height: 28px"></div>
+  <div
+    class="diagram-box"
+    style="text-align: center; font-size: 21px; padding: 24px"
+  >
+    <span class="dim">The Broker doesn't need to know what's in the email.</span
+    ><br />
+    <span class="dim">It only needs the</span>
+    <span class="label">routing key</span><span class="dim">,</span>
+    <span class="label">priority</span><span class="dim">, and</span>
+    <span class="label">queue name</span><span class="dim">.</span>
+  </div>
+  <div class="slide-num">07 / 09</div>
+</div>
+
+<!-- ========== SLIDE 8: BEST PRACTICES ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <h1>Best Practices &<br /><span class="red">Common Mistakes</span></h1>
+  <div style="height: 8px"></div>
+  <div class="practice-item">
+    <div class="practice-icon do">✓</div>
+    <div class="practice-text">
+      Keep your <strong>Header small</strong> — only metadata, never business
+      data.
+    </div>
+  </div>
+  <div class="practice-item">
+    <div class="practice-icon do">✓</div>
+    <div class="practice-text">
+      Put actual <strong>business data in the Body</strong> — email content,
+      order details, etc.
+    </div>
+  </div>
+  <div class="practice-item">
+    <div class="practice-icon do">✓</div>
+    <div class="practice-text">
+      Use <strong>JSON format</strong> — it's the most common and readable
+      payload format.
+    </div>
+  </div>
+  <div class="practice-item">
+    <div class="practice-icon do">✓</div>
+    <div class="practice-text">
+      Always include a <strong>unique Message ID</strong> and
+      <strong>Timestamp</strong> in every message.
+    </div>
+  </div>
+  <div class="practice-item">
+    <div class="practice-icon do">✓</div>
+    <div class="practice-text">
+      Use <strong>Correlation ID</strong> in microservices to trace related
+      messages.
+    </div>
+  </div>
+  <div style="height: 8px"></div>
+  <div class="practice-item">
+    <div class="practice-icon dont">✗</div>
+    <div class="practice-text">
+      Don't dump <strong>entire business data into the Header</strong>.
+    </div>
+  </div>
+  <div class="practice-item">
+    <div class="practice-icon dont">✗</div>
+    <div class="practice-text">
+      Don't skip <strong>Message Type</strong> — the consumer needs it to know
+      what to do.
+    </div>
+  </div>
+  <div class="practice-item">
+    <div class="practice-icon dont">✗</div>
+    <div class="practice-text">
+      Don't skip <strong>Message ID</strong> — you can't track or debug without
+      it.
+    </div>
+  </div>
+  <div class="slide-num">08 / 09</div>
+</div>
+
+<!-- ========== SLIDE 9: CTA ========== -->
+<div class="slide">
+  <div class="accent-line-top"></div>
+  <div
+    style="
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    "
+  >
+    <div class="series-tag" style="font-size: 16px; letter-spacing: 5px">
+      Part 2 of 7 · Message Queue Series
+    </div>
+    <div style="height: 32px"></div>
+    <div class="title-huge" style="font-size: 64px; text-align: center">
+      Message =<br />
+      <span class="accent">Header</span> +
+      <span style="color: var(--green)">Body</span>
+    </div>
+    <div style="height: 24px"></div>
+    <div class="accent-line" style="margin: 0 auto"></div>
+    <div style="height: 24px"></div>
+    <div
+      class="body-text"
+      style="
+        text-align: center;
+        font-size: 24px;
+        max-width: 700px;
+        margin: 0 auto;
+      "
+    >
+      Header gives the queue directions.<br />
+      Body gives the consumer the work.<br />
+      Keep them separate. Keep it clean.
+    </div>
+    <div style="height: 40px"></div>
+
+    <div style="height: 12px"></div>
+    <div class="cta-text" style="text-align: center">
+      💾 Save this for your interview prep<br />
+      🔔 Follow for the next 5 parts
+    </div>
+  </div>
+  <div class="slide-num">09 / 09</div>
+</div>
+
+<script>
+  // No interactivity needed — static carousel
+</script>
